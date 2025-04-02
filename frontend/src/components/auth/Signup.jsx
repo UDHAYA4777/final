@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import Navbar from "../shared/Navbar";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Button } from "../ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -19,17 +18,22 @@ const Signup = () => {
     phoneNumber: "",
     password: "",
     role: "",
+    applicationNumber: "",
     file: "",
   });
+
   const { loading, user } = useSelector((store) => store.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
   const changeEventHandler = (e) => {
     setInput({ ...input, [e.target.name]: e.target.value });
   };
+
   const changeFileHandler = (e) => {
     setInput({ ...input, file: e.target.files?.[0] });
   };
+
   const submitHandler = async (e) => {
     e.preventDefault();
     const formData = new FormData();
@@ -38,9 +42,15 @@ const Signup = () => {
     formData.append("phoneNumber", input.phoneNumber);
     formData.append("password", input.password);
     formData.append("role", input.role);
+
+    if (input.role === "student") {
+      formData.append("applicationNumber", input.applicationNumber);
+    }
+
     if (input.file) {
       formData.append("file", input.file);
     }
+
     try {
       dispatch(setLoading(true));
       const res = await axios.post(`${USER_API_END_POINT}/register`, formData, {
@@ -49,6 +59,7 @@ const Signup = () => {
         },
         withCredentials: true,
       });
+
       if (res.data.success) {
         navigate("/login");
         toast.success(res.data.message);
@@ -60,11 +71,13 @@ const Signup = () => {
       dispatch(setLoading(false));
     }
   };
+
   useEffect(() => {
     if (user) {
       navigate("/");
     }
-  });
+  }, [user, navigate]);
+
   return (
     <div>
       <Navbar />
@@ -75,7 +88,7 @@ const Signup = () => {
         >
           <h1 className="font-bold text-xl mb-5">Sign Up</h1>
           <div>
-            <Label>FullName</Label>
+            <Label>Full Name</Label>
             <Input
               type="text"
               value={input.fullName}
@@ -114,44 +127,62 @@ const Signup = () => {
               placeholder="Enter password"
             />
           </div>
-          <div className="flex items-center justify-between">
-            <RadioGroup className="flex items-center gap-4 my-5">
-              <div className="flex items-center space-x-2">
-                <Input
-                  type="radio"
-                  name="role"
-                  value="student"
-                  checked={input.role === "student"}
-                  onChange={changeEventHandler}
-                  className="cursor-pointer"
-                />
-                <Label htmlFor="r1">Student</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Input
-                  type="radio"
-                  name="role"
-                  value="recruiter"
-                  checked={input.role === "recruiter"}
-                  onChange={changeEventHandler}
-                  className="cursor-pointer"
-                />
-                <Label htmlFor="rr">Recruiter</Label>
-              </div>
-            </RadioGroup>
-            <div className="flex items-center gap-2">
-              <Label>Profile</Label>
+
+          {/* Role Selection */}
+          {/* Role Selection */}
+          <div className="flex items-center gap-4 my-4">
+            <div className="flex items-center space-x-2">
               <Input
-                accept="image/*"
-                type="file"
-                onChange={changeFileHandler}
+                type="radio"
+                name="role"
+                value="student"
+                checked={input.role === "student"}
+                onChange={changeEventHandler}
                 className="cursor-pointer"
               />
+              <Label>Student</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Input
+                type="radio"
+                name="role"
+                value="recruiter"
+                checked={input.role === "recruiter"}
+                onChange={changeEventHandler}
+                className="cursor-pointer"
+              />
+              <Label>Recruiter</Label>
             </div>
           </div>
+
+          {/* Application Number (Visible Only for Students) */}
+          {input.role === "student" && (
+            <div>
+              <Label>Application Number</Label>
+              <Input
+                type="text"
+                name="applicationNumber"
+                value={input.applicationNumber}
+                onChange={changeEventHandler}
+                placeholder="Enter Application Number"
+              />
+            </div>
+          )}
+
+          {/* Profile Upload */}
+          <div className="flex items-center gap-2 my-4">
+            <Label>Profile</Label>
+            <Input
+              accept="image/*"
+              type="file"
+              onChange={changeFileHandler}
+              className="cursor-pointer"
+            />
+          </div>
+
+          {/* Submit Button */}
           {loading ? (
             <Button className="w-full my-4">
-              {" "}
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please wait
             </Button>
           ) : (
@@ -159,8 +190,9 @@ const Signup = () => {
               Signup
             </Button>
           )}
+
           <span className="text-sm">
-            Already have an Account ?{" "}
+            Already have an Account?{" "}
             <Link to="/login" className="text-blue-600 text-sm">
               Login
             </Link>

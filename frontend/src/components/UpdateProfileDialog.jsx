@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,19 +17,33 @@ import { toast } from "sonner";
 import axios from "axios";
 
 const UpdateProfileDialog = ({ open, setOpen }) => {
-  const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
   const { user } = useSelector((store) => store.auth);
+  const [loading, setLoading] = useState(false);
+
+  // Load applicationNumber from localStorage if available
+  useEffect(() => {
+    setInput((prev) => ({
+      ...prev,
+      applicationNumber:
+        user?.applicationNumber ||
+        localStorage.getItem("applicationNumber") ||
+        "",
+    }));
+  }, [user]);
 
   const [input, setInput] = useState({
     fullName: user?.fullName || "",
     email: user?.email || "",
     phoneNumber: user?.phoneNumber || "",
-    bio: user?.bio,
-    skills: user?.profile?.skills?.join(", ") || "", // Join skills into a comma-separated string
+    bio: user?.bio || "",
+    skills: user?.profile?.skills?.join(", ") || "",
     file: user?.profile?.resume || "",
+    applicationNumber:
+      user?.applicationNumber ||
+      localStorage.getItem("applicationNumber") ||
+      "",
   });
-
-  const dispatch = useDispatch();
 
   const changeEventHandler = (e) => {
     setInput({ ...input, [e.target.name]: e.target.value });
@@ -43,24 +57,19 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
   const submitHandler = async (e) => {
     e.preventDefault();
 
-    // Validation checks
     if (!input.fullName || !input.email || !input.phoneNumber) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
-    // Skills validation (optional)
-    if (input.skills && input.skills.split(",").length === 0) {
-      toast.error("Please enter at least one skill.");
-      return;
-    }
-
-    // File validation
+    // Validate file type
     if (input.file) {
       const allowedExtensions = ["pdf", "docx", "png", "jpg"];
-      const fileExtension = input.file?.name.split(".").pop().toLowerCase();
+      const fileExtension = input.file.name.split(".").pop().toLowerCase();
       if (!allowedExtensions.includes(fileExtension)) {
-        toast.error("Invalid file type. Please upload a PDF or DOCX file.");
+        toast.error(
+          "Invalid file type. Please upload a PDF, DOCX, PNG, or JPG file."
+        );
         return;
       }
     }
@@ -70,10 +79,8 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
     formData.append("email", input.email);
     formData.append("phoneNumber", input.phoneNumber);
     formData.append("bio", input.bio);
-
-    // Convert skills back into an array before sending to backend
+    formData.append("applicationNumber", input.applicationNumber);
     formData.append("skills", input.skills);
-
     if (input.file) {
       formData.append("file", input.file);
     }
@@ -84,26 +91,26 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
         `${USER_API_END_POINT}/profile/update`,
         formData,
         {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+          headers: { "Content-Type": "multipart/form-data" },
           withCredentials: true,
         }
       );
 
       if (res.data.success) {
         dispatch(setUser(res.data.user));
+        localStorage.setItem(
+          "applicationNumber",
+          res.data.user.applicationNumber
+        ); // Save applicationNumber
         toast.success(res.data.message);
       }
     } catch (error) {
-      console.log(error);
       toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
 
     setOpen(false);
-    console.log(input);
   };
 
   return (
@@ -178,6 +185,20 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
               />
             </div>
 
+            {/* Application Number */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="applicationNumber" className="text-right">
+                Application No.
+              </Label>
+              <Input
+                id="applicationNumber"
+                name="applicationNumber"
+                className="col-span-3"
+                value={input.applicationNumber}
+                onChange={changeEventHandler}
+              />
+            </div>
+
             {/* Skills Input */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="skills" className="text-right">
@@ -193,7 +214,7 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
               />
             </div>
 
-            {/* File Upload (Resume) */}
+            {/* File Upload */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="file" className="text-right">
                 Resume

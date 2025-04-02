@@ -4,25 +4,57 @@ import jwt from "jsonwebtoken";
 import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
 
+
+
+
+
 export const register = async (req, res) => {
   try {
-    const { fullName, email, phoneNumber, password, role } = req.body;
-    console.log(fullName, email, phoneNumber, password, role)
+    const { fullName, email, phoneNumber, password, role, applicationNumber } = req.body;
+    console.log(fullName, email, phoneNumber, password, role, applicationNumber);
 
     if (!fullName || !email || !phoneNumber || !role) {
       return res.status(400).json({
-        message: "something is missing",
+        message: "Something is missing",
         success: false,
       });
     }
-    const file = req.file;
-    const fileUri = getDataUri(file);
-    const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+
     const user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({
-        message: "User already exist with the email",
+        message: "User already exists with this email",
+        success: false,
       });
+    }
+
+    let assignedApplicationNumber;
+
+    if (role === "student") {
+      if (!applicationNumber) {
+        return res.status(400).json({
+          message: "Students must provide an applicationNumber.",
+          success: false,
+        });
+      }
+      assignedApplicationNumber = applicationNumber;
+    } else if (role === "recruiter") {
+      const lastRecruiter = await User.findOne({ role: "recruiter" }).sort({ applicationNumber: -1 });
+      const lastApplicationNumber = lastRecruiter ? parseInt(lastRecruiter.applicationNumber, 10) : 0;
+      assignedApplicationNumber = String(lastApplicationNumber + 1).padStart(5, "0");
+    } else {
+      return res.status(400).json({
+        message: "Invalid role. Must be 'student' or 'recruiter'.",
+        success: false,
+      });
+    }
+
+    const file = req.file;
+    let profilePhotoUrl = "";
+    if (file) {
+      const fileUri = getDataUri(file);
+      const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+      profilePhotoUrl = cloudResponse.secure_url;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -32,19 +64,26 @@ export const register = async (req, res) => {
       phoneNumber,
       password: hashedPassword,
       role,
+      applicationNumber: assignedApplicationNumber,
       profile: {
-       
-        profilePhoto: cloudResponse.secure_url,
+        profilePhoto: profilePhotoUrl,
       },
     });
+
     return res.status(201).json({
-      message: "Account creted successfully.",
+      message: "Account created successfully.",
       success: true,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+      success: false,
+    });
   }
 };
+
+
 
 export const login = async (req, res) => {
   try {
@@ -120,7 +159,7 @@ export const logout = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { fullName, email, phoneNumber, bio, skills } = req.body;
+    const { fullName, email, phoneNumber, bio, skills, applicationNumber } = req.body;
 
     const file = req.file;
     //cloudinary ayega idhr
@@ -132,43 +171,55 @@ export const updateProfile = async (req, res) => {
     if (skills) {
       skillsArray = skills.split(",");
     }
+
     const userId = req.id;
     let user = await User.findById(userId);
 
     if (!user) {
       return res.status(400).json({
-        message: "user not found",
+        message: "User not found",
         success: false,
       });
     }
 
+    // Update fields if provided
     if (fullName) user.fullName = fullName;
     if (email) user.email = email;
+    if (applicationNumber) user.applicationNumber = applicationNumber;
     if (phoneNumber) user.phoneNumber = phoneNumber;
     if (bio) user.profile.bio = bio;
     if (skills) user.profile.skills = skillsArray;
 
-    //resume comes later here...
 
+    // Upload resume if file is provided
     if (cloudResponse) {
-      user.profile.resume = cloudResponse.secure_url; //save the cloudinary url
-      user.profile.resumeOriginalName = file.originalname; //save the original file name
+      user.profile.resume = cloudResponse.secure_url; // Save the Cloudinary URL
+      user.profile.resumeOriginalName = file.originalname; // Save the original file name
     }
+
     await user.save();
+
+    // Return updated user details
     user = {
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
       phoneNumber: user.phoneNumber,
+      applicationNumber: user.applicationNumber,
       role: user.role,
       profile: user.profile,
     };
+
     return res.status(200).json({
-      message: "profile updated successfully",
+      message: "Profile updated successfully",
       user,
       success: true,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error updating profile:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+    });
   }
 };

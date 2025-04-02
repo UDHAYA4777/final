@@ -37,14 +37,14 @@ function ApplicantsTable() {
   };
 
   const filteredApplicants = applicants?.applications?.filter((item) =>
-    String(item?.applicant?.phoneNumber || "").includes(filterText)
+    String(item?.applicant?.applicationNumber || "").includes(filterText)
   );
 
   return (
     <div>
       <input
         type="text"
-        placeholder="Filter by Contact Number..."
+        placeholder="Filter by Application Number..."
         value={filterText}
         onChange={(e) => setFilterText(e.target.value)}
         className="p-2 border rounded-md w-1/4 mb-4"
@@ -55,6 +55,7 @@ function ApplicantsTable() {
           <TableRow>
             <TableHead className="p-2">Full Name</TableHead>
             <TableHead className="p-2">Email</TableHead>
+            <TableHead className="p-2">Application Number</TableHead>
             <TableHead className="p-2">Contact</TableHead>
             <TableHead className="p-2">Skills</TableHead>
             <TableHead className="p-2">Resume</TableHead>
@@ -71,6 +72,9 @@ function ApplicantsTable() {
                 </TableCell>
                 <TableCell className="p-2">
                   {item?.applicant?.email || "NA"}
+                </TableCell>
+                <TableCell className="p-2">
+                  {item?.applicant?.applicationNumber || "NA"}
                 </TableCell>
                 <TableCell className="p-2">
                   {item?.applicant?.phoneNumber || "NA"}
